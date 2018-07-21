@@ -1,0 +1,85 @@
+package SNAP::Tests::Procerr;   # modify for your package name.
+			      # must match SNAP/Tests/file.pm
+			      # and [File] in config file must
+			      # match, case sensitive.
+
+use lib "/usr/snap";   # base directoy of SNAP
+use SNAP::Test;	      # parent app.
+use vars qw(@ISA $VERSION);
+@ISA = qw(SNAP::Test);	
+$VERSION='1.0';
+$Debugging=0;
+
+# put any modules you want to use here:
+
+#Don't mess with this unless you know what you're doing.
+sub new { 
+  my $class = shift;
+  my $self = $class->SUPER::new(@_);
+  bless $self, $class;
+  return $self;
+}
+  
+sub test {
+  my $self = shift;
+  $self->logging("starting test") if ($Debugging || $self->{_DEBUG});
+  if (! defined $self->{_grepstr}) {
+    my $page = 0;
+  } else {
+    my %page = 1;
+  }
+  if (! opendir(TLOG, $self->{tlogdir})) {
+    $self->ErrorString("Could not open tlogdir for procerr check");
+    $self->logging("Could not open ".$self->{tlogdir}."for procerr check");
+    $self->logging("returning with error");
+    return;
+  }
+  my $mystat = 0;
+  my $tlogfile;
+  foreach (readdir(TLOG)) {
+    next if (/gz$/);
+    my $statr = (stat($self->{tlogdir}."/".$_))[9];
+    if ((/^Z/) && ($mystat < $statr)) {
+      $mystat=$statr;
+      $tlogfile=$self->{tlogdir}."/".$_;
+    }
+  }
+
+  $self->logging("looking at tlog file: $tlogfile") if ($Debugging || $self->{_DEBUG});
+  closedir(TLOG);
+  $self->{_grepstr}=$self->{grep}." -c \'".$self->{grepfor}."\' ".$tlogfile."|";
+  if (! open (TLOGF, $self->{_grepstr})) {
+    $self->ErrorString("Could not open tlog for procerr check");
+    $self->logging("Could not open ".$tlogfile."for procerr check");
+    return;
+  }
+
+  my($errorcnt) = <TLOGF>;
+  chop($errorcnt);
+  close(TLOGF);
+
+  if (! defined $self->{_tlogfilesave}) {
+    # don't page upon startup, man.
+    $self->{_count} = $errorcnt;
+  } elsif ($self->{_tlogfilesave} ne $tlogfile) {  # new tlog, new count
+    if ($errorcnt) {
+      $self->ErrorString("ProcErrors: ($errorcnt,$errorcnt)");
+    }
+    $self->{_count} = $errorcnt;
+  } elsif ($errorcnt>$self->{_count}) {
+    if (defined $self->{_tlogfilesave}) {  # not first time through
+      $self->ErrorString("ProcErrs: (".$errorcnt.",".($errorcnt - $self->{_count}).")");
+    }
+    $self->{_count} = $errorcnt;
+  }
+  $self->{_tlogfilesave} = $tlogfile;
+  if (length($self->ErrorString)) {
+    $self->logging("returning with error") if ($Debugging || $self->{_DEBUG});
+    return;
+  } else {
+    $self->logging("return normally") if ($Debugging || $self->{_DEBUG});
+    return 1;
+  }
+}
+  
+1; # this must be here

@@ -1,0 +1,82 @@
+#!/bin/sh
+
+if [ "x${1}" = "x" ]; then
+        echo "usage: $0 {<peerip>|<vsiname>}"
+        echo "exiting..."
+        exit 1
+fi
+
+cleanup()
+{
+/usr/local/sbin/racoonctl vd $1
+cat << EOF | setkey -c
+deleteall $1 204.221.56.12 esp;
+deleteall 204.221.56.12 $1 esp;
+EOF
+}
+
+case $1 in
+svin01)
+	cleanup 38.96.154.110
+	;;
+lijm01)
+	cleanup 69.27.229.244
+	;;
+mrmc01)
+	cleanup 199.91.34.69
+	;;
+bhmi01)
+	cleanup 162.82.215.4
+	;;
+uoih01)
+	cleanup 129.255.99.245
+	;;
+tuhs01)
+	cleanup 155.247.119.35
+	;;
+mhsc01)
+	cleanup 168.250.48.20
+	;;
+wpah01)
+	cleanup 204.69.182.2
+	;;
+fmlh01)
+	cleanup 192.227.60.19
+	;;
+pied01)
+        cleanup 68.156.153.162
+        ;;
+subh01)
+        cleanup 151.200.174.20
+        ;;
+thom01)
+        cleanup 216.253.215.27
+        ;;
+wnac01)
+        cleanup 204.15.116.68
+        ;;
+upha01)
+        cleanup 198.60.159.12
+        ;;
+jhop01)
+        cleanup 162.129.255.2
+        ;;
+bcbsal)
+        cleanup 199.97.118.28
+        ;;
+bons01|bons02)
+        cleanup 65.167.17.2
+        ;;
+flhs01|flhs04)
+        cleanup 204.4.101.234
+        ;;
+mcgh01)
+        cleanup 158.93.6.37
+        ;;
+*)
+        cleanup $1
+        ;;
+esac
+
+exit $?
+

@@ -1,0 +1,42 @@
+[main]
+debug=0
+mail=snap@visionshareinc.com
+twitter=vsivrrt:password
+yammer=vsivrrt@visionshareinc.com:password
+logfile=/dev/null
+mailer=/usr/sbin/sendmail -t
+sysloglvl=local2:debug
+syslogid=snap
+signature=whatever
+
+[Ping]
+hosts=206.9.34.49
+timeout=5
+
+[VMware]
+host=localhost
+
+[HTTPPing]
+hosts=localhost:8222
+timeout=5
+
+[DNS]
+format = dig
+command = /usr/bin/dig
+servers = localhost:206.9.34.49
+
+[SSH]
+timeout=12
+dest=206.9.34.49
+
+[Diskspace]
+uname = /bin/uname
+ignore=/proc,/kern,fd,/dev/shm
+defaultspace = 20000    # will use if mount point not defined 
+/ = 512000
+/boot = 24556
+/vms = 5242880 # 5G?
+
+[Selfcheck]
+lookfor = /tmp/snap.findme
+ackfile = /tmp/roger.dodger.snap

@@ -1,0 +1,4 @@
+#!/bin/sh
+/usr/bin/stopsrc -s snap
+sleep 3
+/usr/bin/startsrc -s snap
