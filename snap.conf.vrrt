@@ -1,8 +1,8 @@
 [main]
 debug=0
-mail=snap@visionshareinc.com
-twitter=vsivrrt:vs1sn4ppw
-yammer=vsivrrt@visionshareinc.com:vs1sn4ppw
+mail=email@domain.com
+twitter=user:pass
+yammer=email@domain.com:user
 logfile=/dev/null
 mailer=/usr/sbin/sendmail -t
 sysloglvl=local2:debug
