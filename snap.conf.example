@@ -1,6 +1,6 @@
 [main]
 debug=0
-mail=peisch@visionshareinc.com
+mail=user@domain.com
 logfile=/dev/null
 mailer=/usr/lib/sendmail -t
 twitter=vsisnap:vs1sn4ppw
