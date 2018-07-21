@@ -1,0 +1,28 @@
+[main]
+debug=0
+mail=peisch@visionshareinc.com
+logfile=/dev/null
+mailer=/usr/lib/sendmail -t
+twitter=vsisnap:vs1sn4ppw
+page=noc
+pager=/usr/local/bin/qpage
+sysloglvl=local2:debug
+syslogid=snap
+signature=whatever
+
+[Ping]
+#hosts=localhost,zen,neo,worf,206.9.34.253,206.9.34.252
+hosts=speedy.mednet.org worf.mednet.org aspen-med.mednet.org rma-host.mednet.org shubert.mednet.org merlin.mednet.org laker.mednet.org rma-mainframe.mednet.org nat.healtheast-b.mednet.org allina-b.mednet.org walker-senior-svcs.mednet.org am-baptist-homes.mednet.org brd-soc-min.mednet.org noridian.mednet.org healthpartners-b.mednet.org hsm-b.mednet.org hcmc-b.mednet.org fairview-b.mednet.org nmmc-b.mednet.org uofm-diabetes-b.mednet.org client0.mednet.org rma-b.mednet.org scicom-b.mednet.org pref-one.mednet.org lakeview-hosp.mednet.org mayo.mednet.org client1.mednet.org
+timeout=5
+
+[Diskspace]
+uname = /usr/bin/uname -v
+df = /usr/bin/df   # the '-k' will be added
+# ignore can be either device or mount point.
+ignore=/proc,/kern,fd
+defaultspace = 20000    # will use if mount point not defined 
+/ = 12000
+
+[Selfcheck]
+lookfor = /tmp/snap.findme
+ackfile = /tmp/roger.dodger.snap

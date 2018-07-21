@@ -1,0 +1,52 @@
+rdist: Updating the host uds1.
+rdist: sending: /usr/snap/time.pl
+rdist: sending: /usr/snap/SNAP/Config.pm
+rdist: sending: /usr/snap/SNAP/Notify.pm
+rdist: sending: /usr/snap/SNAP/Test.pm
+rdist: sending: /usr/snap/SNAP/Tests/Ping.pm
+rdist: sending: /usr/snap/SNAP/Tests/Procerr.pm
+rdist: sending: /usr/snap/SNAP/Tests/Rimwatch.pm
+rdist: installing: /usr/snap/SNAP/Tests/Selfcheck.pm
+rdist: installing: /usr/snap/SNAP/Tests/Procerr.pm.ver1
+rdist: installing: /usr/snap/SNAP/Tests/Err290.pm
+rdist: sending: /usr/snap/README.conf
+rdist: sending: /usr/snap/snap
+rdist: installing: /usr/snap/README.snap
+rdist: installing: /usr/snap/pingwho.pl
+rdist: installing: /usr/snap/README.install
+rdist: notify @uds1 ( jay@cake )
+rdist: Updating the host dia1.
+rdist: sending: /usr/snap/time.pl
+rdist: sending: /usr/snap/SNAP/Config.pm
+rdist: sending: /usr/snap/SNAP/Notify.pm
+rdist: sending: /usr/snap/SNAP/Test.pm
+rdist: sending: /usr/snap/SNAP/Tests/Ping.pm
+rdist: sending: /usr/snap/SNAP/Tests/Procerr.pm
+rdist: sending: /usr/snap/SNAP/Tests/Rimwatch.pm
+rdist: installing: /usr/snap/SNAP/Tests/Selfcheck.pm
+rdist: installing: /usr/snap/SNAP/Tests/Procerr.pm.ver1
+rdist: installing: /usr/snap/SNAP/Tests/Err290.pm
+rdist: sending: /usr/snap/README.conf
+rdist: sending: /usr/snap/snap
+rdist: installing: /usr/snap/README.snap
+rdist: installing: /usr/snap/pingwho.pl
+rdist: installing: /usr/snap/README.install
+rdist: notify @dia1 ( jay@cake )
+rdist: Updating the host shr2.
+rdist: removed /usr/snap/msl.snap.conf
+rdist: sending: /usr/snap/time.pl
+rdist: sending: /usr/snap/SNAP/Config.pm
+rdist: sending: /usr/snap/SNAP/Notify.pm
+rdist: sending: /usr/snap/SNAP/Test.pm
+rdist: sending: /usr/snap/SNAP/Tests/Ping.pm
+rdist: sending: /usr/snap/SNAP/Tests/Procerr.pm
+rdist: sending: /usr/snap/SNAP/Tests/Rimwatch.pm
+rdist: installing: /usr/snap/SNAP/Tests/Selfcheck.pm
+rdist: installing: /usr/snap/SNAP/Tests/Procerr.pm.ver1
+rdist: installing: /usr/snap/SNAP/Tests/Err290.pm
+rdist: sending: /usr/snap/README.conf
+rdist: sending: /usr/snap/snap
+rdist: installing: /usr/snap/README.snap
+rdist: installing: /usr/snap/pingwho.pl
+rdist: installing: /usr/snap/README.install
+rdist: notify @shr2 ( jay@cake )

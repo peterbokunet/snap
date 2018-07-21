@@ -1,0 +1,530 @@
+package SNAP::Notify;
+use Sys::Syslog qw(:DEFAULT setlogsock);
+use Carp;
+my $Debugging = 0;
+
+my $haveTwitter = 'no';
+my $haveYammer = 'no';
+my $haveMail = 'no';
+my $havePager = 'no';
+
+use strict;
+
+sub new {
+  my $proto = shift;
+  my $class = ref($proto) || $proto;
+  my $self;
+  my @depts = qw(debug twitter twitterskiphost yammer yammerskiphost yammergroup mail logfile mailer page pager sysloglvl from subject hostname signature syslogid syssock);
+
+  if (ref($_[0])) {
+    foreach (@depts) {
+      $self->{$_}=$_[0]->mainvalue($_);
+      if ($_ eq 'debug') {
+	  $Debugging = ($_[0]->mainvalue($_) > $Debugging ? $_[0]->mainvalue($_) : $Debugging);
+      }
+    }
+  } else { 
+    my %arg = @_;
+    foreach (@depts) {
+      $self->{$_}=$arg{$_}
+    }
+  }
+  bless $self, $class;
+  if ((defined $self->{sysloglvl}) and (defined $self->{syslogid})) {
+    $self->startlog();
+  }
+  if ($self->debug>2) {
+      $self->logging(ref($self) . '->new');
+      if (ref($_[0])) {
+	  foreach (@depts) {
+	      $self->logging('Notify::new() ' . $_ . ' => ' . $self->{$_});
+	  }
+      } else { 
+	  my %arg = @_;
+	  foreach (@depts) {
+	      $self->logging('Notify::new() ' . $_ . ' => ' . $self->{$_});
+	  }
+      }
+  }
+
+  $self->logging("Errors logged between here and \"Using Notifications:\"\n".
+		 "are only warnings.  The failure to load modules here will\n".
+		 "not be fatal.");
+
+  $self->checkTwitter();
+  $self->checkYammer();
+  $self->checkMail();
+  $self->checkPager();
+
+  my $msg = '';
+  $msg .= 'Twitter '
+      if ($haveTwitter eq 'yes');
+  $msg .= 'Yammer '
+      if ($haveYammer eq 'yes');
+  $msg .= 'Mail '
+      if ($haveMail eq 'yes');
+  $msg .= 'Pager '
+      if ($havePager eq 'yes');
+
+  if ($msg eq '') {
+      $self->logging('Using Notifications:   ****** NO Notifications Found ******');
+  } else {
+      $self->logging('Using Notifications: ' . $msg);
+  }
+
+  return $self;
+}
+
+sub checkPager {
+  my $self = shift;
+  my $pagerApp = $self->pager;
+  my @nice_check;
+
+  return 0
+      if ($pagerApp eq '');
+
+  if (! -x $pagerApp) {
+    $self->logging('  ERROR: do not have permission to exec: '.$pagerApp);
+    return;
+  }
+
+  push(@nice_check, 'pager')
+    if (! defined $self->pager);
+  push(@nice_check, 'page')
+    if (! defined $self->page);
+  push(@nice_check, 'hostname')
+    if (! defined $self->hostname);
+  if ($#nice_check>=0) {
+    $self->logging('need '.(join(', ', @nice_check)).' defined to send a page');
+    return;
+  }
+
+  $havePager = 'yes';
+}
+
+
+sub checkMail {
+  my $self = shift;
+  my $basemail = (split(/\s+/, $self->mailer))[0];
+
+  return 0
+      if ($basemail eq '');
+
+  if (! -x $basemail) {
+    $self->logging('  ERROR: do not have permission to exec: '.$basemail);
+    return;
+  }
+  if (! defined $self->mail) {
+    $self->logging('  ERROR: mail must be defined');
+    return;
+  }
+  $haveMail = 'yes';
+}
+
+
+sub checkTwitter {
+    my $self = shift;
+    my $mod = "use Net::Twitter;";
+    my ($user, $pass) = split(/\:/, $self->twitter());
+
+    return(0)
+      if ((! defined $user) || ($user eq ''));
+
+    return(0)
+      if ((! defined $pass) || ($pass eq ''));
+
+    $self->logging("Attempting to load \'$mod\'... ")
+	if ($self->debug>2);
+
+    eval $mod;
+    if ($@=~/\w/) {  # eval caught something
+	my $error = $@;  
+	$self->logging('  WARNING: Could not Load Net::Twitter ('.$error.')')
+	    if ($self->debug);
+	$self->logging('  Continuing without twitter');
+	$haveTwitter = 'no';
+    } else {
+	$self->logging('  Success loading Net::Twitter');
+	$haveTwitter = 'yes';
+    }
+}
+
+
+sub checkYammer {
+    my $self = shift;
+    my $mod = "use Digest;\nuse LWP::UserAgent;use Digest::SHA1";
+    my ($user, $pass) = split(/\:/, $self->yammer());
+
+    return(0)
+      if ((! defined $user) || ($user eq ''));
+
+    return(0)
+      if ((! defined $pass) || ($pass eq ''));
+
+    $self->logging("Attempting to load \'$mod\'... ")
+	if ($self->debug>2);
+    eval $mod;
+    if ($@=~/\w/) {  # eval caught something
+	my $error = $@;  
+	$self->logging("  WARNING: Could not Load Yammer modules ($error)")
+	    if ($self->debug);
+	$self->logging('  Continuing without yammer');
+	$haveYammer = 'no';
+    } else {
+	$self->logging('  Success loading Yammer');
+	$haveYammer = 'yes';
+    }
+}
+
+
+sub twitter {
+  my ($self) = shift;
+  $self->{twitter} = shift if (@_);
+  return undef
+      if (! defined $self->{twitter});
+  $self->logging(ref($self).'->twitter = '.$self->{twitter})
+      if ($self->debug>2);
+  return $self->{twitter};
+}
+
+sub yammer {
+  my ($self) = shift;
+  $self->{yammer} = shift if (@_);
+  $self->logging(ref($self).'->yammer = '.$self->{yammer})
+      if ($self->debug>2);
+  return $self->{yammer};
+}
+
+sub twitter {
+  my ($self) = shift;
+  $self->{twitter} = shift if (@_);
+  if (($Debugging>2) || ($self->{debug}>2)) {
+    carp "  twitter() ".ref($self)."->twitter = ".$self->{twitter};
+  }
+  return $self->{twitter};
+}
+
+sub mail {
+  my ($self) = shift;
+  $self->{mail} = shift if (@_);
+  $self->logging(ref($self).'->mail = '.$self->{mail})
+      if ($self->debug>2);
+  return $self->{mail};
+}
+
+sub logfile {
+  my $self = shift;
+  $self->{logfile} = shift if (@_);
+  $self->logging(ref($self).'->logfile = '.$self->{logfile})
+      if ($self->debug>2);
+  return $self->{logfile};
+}
+
+sub mailer {
+  my $self = shift;
+  $self->{mailer} = shift if (@_);
+  $self->logging(ref($self).'->mailer = '.$self->{mailer})
+      if ($self->debug>2);
+  return $self->{mailer};
+}
+
+sub page {
+  my $self = shift;
+  $self->{page} = shift if (@_);
+  $self->logging(ref($self).'->page = '.$self->{page})
+      if ($self->debug>2);
+  return $self->{page};
+}
+
+sub pager {
+  my $self = shift;
+  $self->{pager} = shift if (@_);
+  $self->logging(ref($self).'->pager = '.$self->{pager})
+      if ($self->debug>2);
+  return $self->{pager};
+}
+
+sub from {
+  my $self = shift;
+  $self->{from} = shift if (@_);
+  $self->logging(ref($self).'->from = '.$self->{from})
+      if ($self->debug>2);
+  return $self->{from};
+}
+
+sub subject {
+  my $self = shift;
+  $self->{subject} = shift if (@_);
+  $self->logging(ref($self).'->subject = '.$self->{subject})
+      if ($self->debug>2);
+  return $self->{subject};
+}
+
+sub hostname {
+  my $self = shift;
+  $self->{hostname} = shift if (@_);
+  $self->logging(ref($self).'->hostname = '.$self->{hostname})
+      if ($self->debug>2);
+  return $self->{hostname};
+}
+
+sub signature {
+  my $self = shift;
+  $self->{signature} = shift if (@_);
+  $self->logging(ref($self).'->signature = '.$self->{signature})
+      if ($self->debug>2);
+  return $self->{signature};
+}
+
+sub syssock {
+  my $self = shift;
+  $self->{syssock} = shift if (@_);
+  $self->logging(ref($self).'->syssock = '.$self->{syssock})
+      if ($self->debug>2);
+  return $self->{syssock};
+}
+
+sub sysloglvl {
+  my $self = shift;
+  $self->{sysloglvl} = shift if (@_);
+  carp(ref($self).'->sysloglvl = '.$self->{sysloglvl})
+      if ($self->debug>2);
+  return $self->{sysloglvl};
+}
+
+sub syslogid {
+  my $self = shift;
+  $self->{syslogid} = shift if (@_);
+  carp(ref($self).'->syslogid = '.$self->{syslogid})
+      if ($self->debug>2);
+  return $self->{syslogid};
+}
+
+sub twitterskiphost {
+  my ($self) = shift;
+  my $val = shift if (@_);
+  if (defined $val && !($val =~ /^[nN0]/)) {
+      $self->{twitterskiphost} = 'yes';
+  }
+  $self->logging("Notify: twitterskiphost: ".$self->{twitterskiphost})
+      if ($self->debug > 2);
+  return $self->{twitterskiphost};
+}
+
+sub yammerskiphost {
+  my ($self) = shift;
+  my $val = shift if (@_);
+  if (defined $val && !($val =~ /^[nN0]/)) {
+      $self->{yammerskiphost} = 'yes';
+  }
+  $self->logging("Notify: yammerskiphost: ".$self->{yammerskiphost})
+      if ($self->debug > 2);
+  return $self->{yammerskiphost};
+}
+
+sub yammergroup {
+  my ($self) = shift;
+  my $val = shift if (@_);
+  $self->logging("Notify: yammergroup: ".$self->{yammergroup})
+      if ($self->debug > 2);
+  return $self->{yammergroup};
+}
+
+sub sendtwitter {
+  my $self = shift;
+  my $subject = $self->subject || "undefined in $0";
+  my $update = $self->hostname.': '.$self->subject;
+  my $result;
+  my ($user, $pass) = split(/\:/, $self->twitter());
+
+  return(0)
+      if ($haveTwitter ne 'yes');
+
+  if ($self->twitterskiphost ne '') {
+      $update = $self->subject;
+  }
+
+  $self->logging("Notify: sendtwitter(".$update.")")
+      if ($self->debug>2);
+
+  $self->logging("Notify: twitter account: ".$user.":".$pass)
+      if ($self->debug>2);
+  my $tweet = Net::Twitter->new(user=>"$user", pass=>"$pass");
+  $self->logging("Notify: updating: ".$tweet)
+      if ($self->debug>2);
+  $tweet->update($update);
+  my $result = $tweet->http_code;
+
+  $self->logging('Notify: Fail whale result: '.$result.' => '.$update)
+      if (($self->debug>2) || ($result ne '200'));
+  
+  return(1);
+}
+
+sub twitterskiphost {
+  my ($self) = shift;
+  my $val = shift if (@_);
+  if (defined $val && !($val =~ /^[nN0]/)) {
+      $self->{twitterskiphost} = 'yes';
+  }
+  $self->logging("Notify: twitterskiphost: ".$self->{twitterskiphost}) if (($Debugging > 2) || ($self->{_DEBUG} > 2));
+  return $self->{twitterskiphost};
+}
+
+sub sendmail {
+  my $self = shift;
+  my $msg = shift;
+  my $subject = $self->subject || "undefined in $0";
+  my $basemail = (split(/\s+/, $self->mailer))[0];
+
+  return(0)
+      if ($haveMail ne 'yes');
+
+  if (! open(MAILER, "|".$self->mailer)) {
+    $self->logging("ERROR: could not execute ".$self->mailer);
+    return;
+  } 
+  print MAILER "To: ".$self->mail."\n";
+  print MAILER "From: ".$self->from."\n";
+  print MAILER "Subject: ".$self->subject."\n\n";
+  print MAILER "\n".$msg."\n";
+  print MAILER $self->signature."\n" if (defined $self->signature);
+  close(MAILER);
+  return if ($?>>8);	# error in exec call
+  if ($self->debug>2) {
+    my $debugstr.="Notify: sendmail: To:".$self->mail."; From: ".$self->from."; Subject: ".$self->subject." ";
+    $debugstr.=$self->signature  if (defined $self->signature);
+    $self->logging($debugstr);
+  }
+  return(1);
+}
+
+sub sendyammer {
+  my $self = shift;
+  my $msg = shift;
+  my $subject = $self->subject || "undefined in $0";
+  my $update = $self->hostname.': '.$self->subject;
+  my $result;
+  my $secret = 'ae09929f0e9ec71034c4368c6244613fc718d0b4';
+  my ($user, $pass) = split(/\:/, $self->yammer());
+
+  return(0)
+      if ($haveYammer ne 'yes');
+
+  if ($self->yammerskiphost ne '') {
+      $update = $self->subject;
+  }
+
+  if ($self->yammergroup ne '') {
+      $update = 'to:'.$self->yammergroup.' '.$update;
+  }
+
+  $self->logging("Notify: sendDirectYammer(".$update.")")
+      if ($self->debug>2);
+
+  my $api_nonce  = int(rand(2**32)). ":" . time();
+  my $api_digest = Digest->new('SHA-1')->add($api_nonce . ":" . $secret)->hexdigest;
+  
+  my $r = HTTP::Request->new( POST => 'https://yammer.com/api/v1/messages/' );
+  $r->authorization_basic($user, $pass);
+  $r->header( 'X-Yammer-Client'           => 'SNAP'      );
+  $r->header( 'X-Yammer-Client-Nonce'     => $api_nonce  );
+  $r->header( 'X-Yammer-Client-Hexdigest' => $api_digest );
+  $r->content('body='.$update);
+
+  my $ua = LWP::UserAgent->new();
+  $result =  $ua->request($r);
+
+  if (($result->message eq 'Created') && ($result->code eq 201)) {
+      $self->logging('Notify: sendDirectYammer('.$update.') Succeeded')
+	  if ($self->debug>2);
+  } else {
+      $self->logging('Notify: '.$result->code.' '.$result->message.' => '.$update);
+  }
+  return(1);
+}
+
+sub sendpage {
+  my $self = shift;
+  my $msg = shift;
+
+  return(0)
+      if ($havePager ne 'yes');
+
+  my $syscall = $self->pager.' -f '.$self->hostname.' -p '.$self->page." \"$msg\"";
+  system($syscall);
+  if ($?>>8) {    # error in system call
+    $self->logging("Error in system call for: \"$syscall\"");
+    return;
+  }
+  if ($self->debug > 2) {
+    $self->logging("  sendpage() ".ref($self)."->sendpage: $syscall");
+  }
+  return(1);
+}
+
+sub startlog {
+  my $self = shift;
+  my @nice;
+  my($facility, $lvl)=split(/:/, $self->sysloglvl);
+  if ((! defined $facility) or (! defined $lvl)) {
+    push(@nice, 'sysloglvl');
+  }
+  push(@nice, 'syslogid') if (! defined $self->syslogid);
+  if ($#nice>=0) {
+    carp("need ".(join(', ', @nice))." defined correctly to use syslog");
+    $self->{_OKAYTOLOG} = 0;
+    return;
+  }
+  $self->{_LOGFACILITY} = $facility;
+  $self->{_LOGLEVEL} = $lvl;
+  if ($self->debug>2) {
+    warn("  startlog(): openlog (".$self->syslogid.", \"cons,pid\", ".$self->{_LOGFACILITY}.")\n");
+  }
+
+  if (defined $self->syssock) {
+    setlogsock($self->syssock);
+  }
+  openlog ($self->syslogid, 'cons,pid', $self->{_LOGFACILITY});
+  syslog($self->{_LOGLEVEL}, '%s starting', $self->syslogid);
+  $self->{_OKAYTOLOG} = 1;
+  return;
+}
+
+sub logging {
+  my $self = shift;
+  if (! $self->{_OKAYTOLOG}) {
+    carp "Logging not initialized properly";
+    return;
+  }
+  my $lvl = shift;
+  my $msg = shift;
+  if (! defined $msg) {
+    $msg = $lvl;
+    $lvl = $self->{_LOGLEVEL};
+  }
+  syslog($lvl, $msg);
+  if ($self->debug>2) {
+    carp "  logging() ".ref($self)."->logging: $lvl, $msg";
+  }
+  return;
+}
+
+sub debug {
+  my $self = shift;
+  my $level = shift;
+  if (! defined $self->{_DEBUG}) {
+      $self->{_DEBUG} = $Debugging;
+  }
+  if (defined $level) {
+      $self->{_DEBUG} = $level;
+  }
+  return $self->{_DEBUG};
+}
+
+# What you just said, is one the most insanely idiotic things I've every heard.
+# At no point in your rambling, incoherent response, 
+# were you even close to anything that could be considered a rational thought.
+# Everyone in this room is now dumber for having listen to it.
+  
+1;

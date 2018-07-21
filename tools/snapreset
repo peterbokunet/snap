@@ -1,0 +1,44 @@
+#!/usr/bin/perl
+
+use IO::Socket;
+use IO::Handle;
+use Sys::Syslog qw(:DEFAULT setlogsock);
+use strict;
+
+setlogsock('unix');
+openlog('snapreset', 'ndelay,pid', 'daemon');
+
+
+my ($port, $addr) =
+    unpack_sockaddr_in(getpeername(STDIN));
+
+my $name = gethostbyaddr($addr, AF_INET);
+my $ip = inet_ntoa($addr);
+
+$_ = <STDIN>;
+$_ =~ /(\S+)/;
+my $site = $1;
+
+my $cmdl = "/root/bin/flushpeer $site";
+
+my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time);
+$year += 1900;
+$mon++;
+
+my $nowtime = sprintf("%04d%02d%02d%02d%02d", 
+                      $year, $mon, $mday, $hour, $min);
+
+if (defined $site) {
+    syslog('info', 'Resetting: ' . $site . ' from: ' . $ip . ' at: ' . $nowtime);
+    
+    open(TMPL, "$cmdl|");
+    while (<TMPL>) {
+        my $line = $_;
+	my $str = "Resetting: $site read: $line";
+	print "$str\n";
+	syslog('info', $str);
+    }
+    close(TMPL);
+    print "Resetting: $site done\n";
+}
+
