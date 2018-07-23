@@ -3,7 +3,7 @@ package SNAP::Tests::TCPPing;
 use SNAP::Test;	
 use vars qw(@ISA $VERSION);
 our @ISA = qw(SNAP::Test);	
-my $VERSION='1.0';
+my $VERSION='1.2';
 
 use strict;
 
@@ -23,7 +23,6 @@ my $ltime;
 sub test {
     my $self = shift;
     $self->logging("starting test") if ($self->debug);
-    my $host;
     my @fhosts;
     my @rhosts;
     my $lnow = time % 3600;
@@ -31,10 +30,19 @@ sub test {
     $ltime = $lnow;
     
     foreach my $cur (split(/[\s+,]+/, $self->{hosts})) {
-	my $host;
+	my ($host, $port, $name) = split(/:/, $cur);
 	my $port;
 	my $state;
 	
+	($host, $port) = split(/:/, $cur);
+	
+	$host = $name
+	    if ($host eq '');
+
+	$name = $host
+	    if ($name eq '');
+
+
 	# the first time through the hash won't be defined.  We don't 
 	# want to alarm on each system coming up as it's noisy so we'll
 	# presume that it's already up.  If the first poll determines 
@@ -45,8 +53,6 @@ sub test {
 	    $shosts{$cur} = 'UP';
 	    $nag = 'YES'; # it means we're just starting up and $ltime was 0
 	}
-	
-	($host, $port) = split(/:/, $cur);
 	
 	$self->logging("testing: $host") if ($self->debug);
 	my $sock = IO::Socket::INET->new(PeerAddr => $host,
@@ -72,11 +78,11 @@ sub test {
 	
 	if (($shosts{$cur} ne $state) || (($nag eq 'YES') && ($state ne 'UP'))) {
 	    if ($port != '') {
-		push @fhosts, "$host:$port:$state";
-		$self->logging("adding: $host:$port:$state") if ($self->debug);
+		push @fhosts, "$name:$port:$state";
+		$self->logging("adding: $name:$port:$state") if ($self->debug);
 	    } else {
-		push @fhosts, "$host:$state";
-		$self->logging("adding: $host:$state") if ($self->debug);
+		push @fhosts, "$name:$state";
+		$self->logging("adding: $name:$state") if ($self->debug);
 	    }
 	}
 	$shosts{$cur} = $state;
