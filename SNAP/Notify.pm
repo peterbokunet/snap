@@ -39,9 +39,12 @@ call the same method on each.
 
 package SNAP::Notify;
 use Sys::Syslog qw(:DEFAULT setlogsock);
+use Scalar::Util 'blessed'; # for Net::Twitter
 use Carp;
 my $Debugging = 0;
 
+my $haveTeams = 'yes';
+my $haveSlack = 'yes';
 my $haveTwitter = 'no';
 my $haveYammer = 'no';
 my $haveMail = 'no';
@@ -53,7 +56,7 @@ sub new {
   my $proto = shift;
   my $class = ref($proto) || $proto;
   my $self;
-  my @depts = qw(debug twitter twitterskiphost yammer yammerskiphost yammergroup mail logfile mailer page pager sysloglvl from subject hostname signature syslogid syssock);
+  my @depts = qw(debug teams teamsskiphost slack slackskiphost twitter twitterskiphost yammer yammerskiphost yammergroup mail logfile mailer page pager sysloglvl from subject hostname signature syslogid syssock);
 
   if (ref($_[0])) {
     foreach (@depts) {
@@ -92,6 +95,8 @@ sub new {
 
   $self->checkTwitter();
   $self->checkYammer();
+  $self->checkTeams();
+  $self->checkSlack();
   $self->checkMail();
   $self->checkPager();
 
@@ -100,6 +105,10 @@ sub new {
       if ($haveTwitter eq 'yes');
   $msg .= 'Yammer '
       if ($haveYammer eq 'yes');
+  $msg .= 'Teams '
+      if ($haveTeams eq 'yes');
+  $msg .= 'Slack '
+      if ($haveSlack eq 'yes');
   $msg .= 'Mail '
       if ($haveMail eq 'yes');
   $msg .= 'Pager '
@@ -163,14 +172,11 @@ sub checkMail {
 
 sub checkTwitter {
     my $self = shift;
-    my $mod = "use Net::Twitter;";
-    my ($user, $pass) = split(/\:/, $self->twitter());
+    my $mod = "use Net::Twitter::Lite::With_APIv1;";
+    my ($ckey, $csec, $atok, $asec) = split(/\:/, $self->twitter());
 
     return(0)
-      if ((! defined $user) || ($user eq ''));
-
-    return(0)
-      if ((! defined $pass) || ($pass eq ''));
+	if (($ckey eq '') || ($csec eq '') || ($atok eq '') || ($asec eq ''));
 
     $self->logging("Attempting to load \'$mod\'... ")
 	if ($self->debug>2);
@@ -178,12 +184,12 @@ sub checkTwitter {
     eval $mod;
     if ($@=~/\w/) {  # eval caught something
 	my $error = $@;  
-	$self->logging('  WARNING: Could not Load Net::Twitter ('.$error.')')
+	$self->logging('  WARNING: Could not Load Net::Twitter::Lite ('.$error.')')
 	    if ($self->debug);
 	$self->logging('  Continuing without twitter');
 	$haveTwitter = 'no';
     } else {
-	$self->logging('  Success loading Net::Twitter');
+	$self->logging('  Success loading Net::Twitter::Lite');
 	$haveTwitter = 'yes';
     }
 }
@@ -216,6 +222,54 @@ sub checkYammer {
 }
 
 
+sub checkSlack {
+    my $self = shift;
+    my $mod = "use LWP::UserAgent;";
+    my ($apikey) = $self->slack();
+
+    return(0)
+      if ((! defined $apikey) || ($apikey eq ''));
+
+    $self->logging("Attempting to load \'$mod\'... ")
+	if ($self->debug>2);
+    eval $mod;
+    if ($@=~/\w/) {  # eval caught something
+	my $error = $@;  
+	$self->logging("  WARNING: Could not load LWP::UserAgent module ($error)")
+	    if ($self->debug);
+	$self->logging('  Continuing without Slack');
+	$haveSlack = 'no';
+    } else {
+	$self->logging('  Success loading Slack');
+	$haveSlack = 'yes';
+    }
+}
+
+
+sub checkTeams {
+    my $self = shift;
+    my $mod = "use LWP::UserAgent;";
+    my ($apikey) = $self->slack();
+
+    return(0)
+      if ((! defined $apikey) || ($apikey eq ''));
+
+    $self->logging("Attempting to load \'$mod\'... ")
+	if ($self->debug>2);
+    eval $mod;
+    if ($@=~/\w/) {  # eval caught something
+	my $error = $@;  
+	$self->logging("  WARNING: Could not load LWP::UserAgent module ($error)")
+	    if ($self->debug);
+	$self->logging('  Continuing without Teams');
+	$haveSlack = 'no';
+    } else {
+	$self->logging('  Success loading Teams');
+	$haveSlack = 'yes';
+    }
+}
+
+
 sub twitter {
   my ($self) = shift;
   $self->{twitter} = shift if (@_);
@@ -234,13 +288,20 @@ sub yammer {
   return $self->{yammer};
 }
 
-sub twitter {
+sub slack {
   my ($self) = shift;
-  $self->{twitter} = shift if (@_);
-  if (($Debugging>2) || ($self->{debug}>2)) {
-    carp "  twitter() ".ref($self)."->twitter = ".$self->{twitter};
-  }
-  return $self->{twitter};
+  $self->{slack} = shift if (@_);
+  $self->logging(ref($self).'->slack = '.$self->{slack})
+      if ($self->debug>2);
+  return $self->{slack};
+}
+
+sub teams {
+  my ($self) = shift;
+  $self->{teams} = shift if (@_);
+  $self->logging(ref($self).'->teams = '.$self->{slack})
+      if ($self->debug>2);
+  return $self->{teams};
 }
 
 sub mail {
@@ -369,33 +430,78 @@ sub yammergroup {
   return $self->{yammergroup};
 }
 
+sub slackskiphost {
+  my ($self) = shift;
+  my $val = shift if (@_);
+  if (defined $val && !($val =~ /^[nN0]/)) {
+      $self->{slackskiphost} = 'yes';
+  }
+  $self->logging("Notify: slackskiphost: ".$self->{slackskiphost})
+      if ($self->debug > 2);
+  return $self->{slackskiphost};
+}
+
+sub teamsskiphost {
+  my ($self) = shift;
+  my $val = shift if (@_);
+  if (defined $val && !($val =~ /^[nN0]/)) {
+      $self->{teamsskiphost} = 'yes';
+  }
+  $self->logging("Notify: teamsskiphost: ".$self->{teamsskiphost})
+      if ($self->debug > 2);
+  return $self->{teamsskiphost};
+}
+
 sub sendtwitter {
   my $self = shift;
   my $subject = $self->subject || "undefined in $0";
   my $update = $self->hostname.': '.$self->subject;
   my $result;
-  my ($user, $pass) = split(/\:/, $self->twitter());
+  my ($ckey, $csec, $atok, $asec) = split(/\:/, $self->twitter());
 
   return(0)
       if ($haveTwitter ne 'yes');
 
-  if ($self->twitterskiphost ne '') {
-      $update = $self->subject;
-  }
+  return(0)
+      if (($ckey eq '') || ($csec eq '') || ($atok eq '') || ($asec eq ''));
+  
+  $update = $self->subject
+      if ($self->twitterskiphost ne '');
 
-  $self->logging("Notify: sendtwitter(".$update.")")
+  $self->logging('Notify: sendtwitter('.$update.')')
       if ($self->debug>2);
 
-  $self->logging("Notify: twitter account: ".$user.":".$pass)
+  $self->logging('Notify: twitter account: '.$ckey.':'.$csec.':'.$atok.':'.$asec)
       if ($self->debug>2);
-  my $tweet = Net::Twitter->new(user=>"$user", pass=>"$pass");
-  $self->logging("Notify: updating: ".$tweet)
+
+  $update .= ' '.`date`
+      if ($self->debug>2);
+
+  my $tweet = Net::Twitter::Lite->new(
+      traits          => ['API::REST', 'OAuth'],
+      consumer_key    => $ckey,
+      consumer_secret => $csec,
+      );
+
+  $tweet->access_token($atok);
+  $tweet->access_token_secret($asec);
+
+  $self->logging('Notify: updating: '.$update)
       if ($self->debug>2);
   $tweet->update($update);
-  my $result = $tweet->http_code;
-
-  $self->logging('Notify: Fail whale result: '.$result.' => '.$update)
-      if (($self->debug>2) || ($result ne '200'));
+  $self->logging('Notify: update sent')
+      if ($self->debug>2);
+  if ( my $err = $@ ) {
+#      if (blessed $err && $err->isa('Net::Twitter::Error')) {
+#          $self->logging('Notify: twitter error: HTTP Response Code: '.$err->code);
+#          $self->logging('Notify: twitter error: HTTP Message......: '.$err->message);
+#          $self->logging('Notify: twitter error: Twitter Error.....: ',$err->error);
+          $self->logging('Notify: twitter error')
+#      } else {
+#          $self->logging('Notify: twitter success')
+#              if ($self->debug>2);
+#      }
+  }
   
   return(1);
 }
@@ -482,6 +588,90 @@ sub sendyammer {
   }
   return(1);
 }
+
+sub sendslack {
+  my $self = shift;
+  my $subject = $self->subject || "undefined in $0";
+  my $update = $self->hostname.': '.$self->subject;
+  my $result;
+  my ($apikey) = $self->slack();
+
+  return(0)
+      if ($haveSlack ne 'yes');
+
+#  $update = $self->subject
+#      if ($self->slackskiphost ne '');
+
+  $self->logging('Notify: sendslack('.$update.')')
+      if ($self->debug>2);
+
+  $self->logging('Notify: slack key: '.$apikey)
+      if ($self->debug>2);
+
+  $update .= ' '.`date`
+      if ($self->debug>2);
+
+# curl -X POST -H 'Content-type: application/json' --data '{"text":"Hello, World!"}' https://hooks.slack.com/services/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
+
+  my $uri = $apikey;
+  my $json = '{"text":"' . $update . '"}';
+  my $req = HTTP::Request->new( 'POST', $uri );
+  $req->header( 'Content-Type' => 'application/json' );
+  $req->content( $json );
+
+  my $lwp = LWP::UserAgent->new;
+  my $response = $lwp->request( $req );
+  my $content  = $response->decoded_content();
+
+  if ( my $err = $@ ) {
+      $self->logging('Notify: slack error')
+  }
+  
+  return(1);
+}
+
+
+sub sendteams {
+  my $self = shift;
+  my $subject = $self->subject || "undefined in $0";
+  my $update = $self->hostname.': '.$self->subject;
+  my $result;
+  my ($apikey) = $self->teams();
+
+  return(0)
+      if ($haveTeams ne 'yes');
+
+#  $update = $self->subject
+#      if ($self->teamsskiphost ne '');
+
+  $self->logging('Notify: sendteams('.$update.')')
+      if ($self->debug>2);
+
+  $self->logging('Notify: teams key: '.$apikey)
+      if ($self->debug>2);
+
+  $update .= ' '.`date`
+      if ($self->debug>2);
+
+# curl -X POST -H 'Content-type: application/json' --data '{"text":"Hello, World!"}' https://teams.microsoft.com/l/channel/19%3a48286999b8c64a6e976ba0500b2900a4%40thread.skype/ATX-Monitor?groupId=89b12ed9-d4ce-4ca2-89fb-dccef8c08db2&tenantId=1eacbc7c-84ea-477e-9e93-49ca7ab5a6ba
+
+  my $uri = $apikey;
+  my $json = '{"text":"' . $update . '"}';
+  my $req = HTTP::Request->new( 'POST', $uri );
+  $req->header( 'Content-Type' => 'application/json' );
+  $req->content( $json );
+
+  my $lwp = LWP::UserAgent->new;
+  my $response = $lwp->request( $req );
+  my $content  = $response->decoded_content();
+
+  if ( my $err = $@ ) {
+      $self->logging('Notify: teams error')
+  }
+  
+  return(1);
+}
+
 
 sub sendpage {
   my $self = shift;
