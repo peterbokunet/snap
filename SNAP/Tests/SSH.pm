@@ -3,7 +3,7 @@ package SNAP::Tests::SSH;
 use SNAP::Test;	      # parent app.
 use vars qw(@ISA $VERSION);
 @ISA = qw(SNAP::Test);	
-$VERSION='1.1';
+$VERSION='1.2';
 
 # put any modules you want to use here:
 use IO::Socket;
@@ -16,7 +16,7 @@ sub new {
   if (! $self->{port}) {
       $self->{port} = 22;
   }
-  $self->logging("Expecting SSH on $self->{port} from: $self->{dest}");
+  $self->logging("Expecting SSH on $self->{port} from: $self->{hosts}");
   return $self;
 }
 
@@ -31,8 +31,10 @@ sub test {
   $ltime = $lnow;
 
   $self->logging("starting test") if ($self->debug);
-  foreach my $cur (split(/[\s+,]+/, $self->{dest})) {
-      $self->logging("testing: $cur") if ($self->debug);
+  foreach my $cur (split(/[\s+,]+/, $self->{hosts})) {
+      $self->logging("testing: $cur")
+	  if ($self->debug);
+      my $name;
       my $host;
       my $port;
       my $state;
@@ -48,7 +50,7 @@ sub test {
 	  $nag = 'YES'; # it means we're just starting up and $ltime was 0
       }
 
-      ($host, $port) = split(/:/, $cur);
+      ($host, $port, $name) = split(/:/, $cur);
 
       my $sock = IO::Socket::INET->new(PeerAddr => $host,
 				       PeerPort => ($port || $self->{port}),
@@ -89,8 +91,8 @@ sub test {
 
       if (($shosts{$cur} ne $state) || (($nag eq 'YES') && ($state ne 'UP'))) {
 	  if ($port != '') {
-	      push @fhosts, "$host:$port:$state";
-	      $self->logging("adding: $host:$port:$state")
+	      push @fhosts, "$name:$port:$state";
+	      $self->logging("adding: $name:$port:$state")
 		  if ($self->debug);
 	  } else {
 	      push @fhosts, "$host:$state";
