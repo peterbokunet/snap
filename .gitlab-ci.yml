@@ -1,4 +1,18 @@
 image: djerfy/gitlab-ci-perl:latest
+
+before_script:
+  - echo "Before script installation"
+  - yum update
+  - yum install perl-Devel-Cover perl-JSON-XS -y
+
+stages:
+  - test
+
+test:unit:
+  stage: test
+  script:
+    - perl --version
+
 perl_version:
   tags:
     - perl
