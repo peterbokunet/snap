@@ -1,10 +1,10 @@
 #image: djerfy/gitlab-ci-perl:latest
 
 before_script:
- - echo “New job started”
+ - echo "New job started"
 
 after_script:
- - echo “Job just finished”
+ - echo "Job just finished"
  - ls -la .
 
 #before_script:
@@ -17,6 +17,10 @@ stages:
 
 test:unit:
   stage: test
+  before_script:
+    - echo "Starting test:unit:"
+  after_script:
+   - echo "Job just finished"
   script:
     - perl --version
     - perl -c
