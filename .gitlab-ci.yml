@@ -1,22 +1,29 @@
-image: djerfy/gitlab-ci-perl:latest
+#image: djerfy/gitlab-ci-perl:latest
 
 before_script:
-  - echo "Before script installation"
-  - yum update
-  - yum install perl-Devel-Cover perl-JSON-XS -y
+ - echo “New job started”
 
-stages:
-  - test
+after_script:
+ - echo “Job just finished”
+ - ls -la .
 
-test:unit:
-  stage: test
-  script:
-    - perl --version
-    - perl -c
+#before_script:
+#  - echo "Before script installation"
+#  - yum update
+#  - yum install perl-Devel-Cover perl-JSON-XS -y
 
-perl_version:
-  tags:
-    - perl
-  script:
-    - perl --version
+#stages:
+#  - test
+
+#test:unit:
+#  stage: test
+#  script:
+#    - perl --version
+#    - perl -c
+
+#perl_version:
+#  tags:
+#    - perl
+#  script:
+#    - perl --version
     
