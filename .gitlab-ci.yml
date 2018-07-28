@@ -17,6 +17,8 @@ stages:
 
 test:unit:
   stage: test
+  tags:
+    - perl
   before_script:
     - echo "Starting test:unit:"
   after_script:
