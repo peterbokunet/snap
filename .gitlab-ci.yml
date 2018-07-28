@@ -15,11 +15,11 @@ after_script:
 stages:
   - test
 
-#test:unit:
-#  stage: test
-#  script:
-#    - perl --version
-#    - perl -c
+test:unit:
+  stage: test
+  script:
+    - perl --version
+    - perl -c
 
 #perl_version:
 #  tags:
