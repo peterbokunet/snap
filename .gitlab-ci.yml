@@ -20,7 +20,7 @@ test:unit:
   before_script:
     - echo "Starting test:unit:"
   after_script:
-   - echo "Job just finished"
+   - echo "Finished test:unit:"
   script:
     - perl --version
     - perl -c
