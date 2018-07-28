@@ -12,8 +12,8 @@ after_script:
 #  - yum update
 #  - yum install perl-Devel-Cover perl-JSON-XS -y
 
-#stages:
-#  - test
+stages:
+  - test
 
 #test:unit:
 #  stage: test
