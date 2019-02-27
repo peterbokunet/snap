@@ -1,0 +1,13 @@
+#cp snap.service  /usr/lib/systemd/system/snap.service
+[Unit]
+Description=SNAP - system and network monitoring
+After=syslog.target network.target
+
+[Service]
+Type=forking
+ExecStart=/opt/snap/snap
+PIDFile=/var/run/snap.pid
+ConditionPathExists=/opt/snap/snap.conf
+
+[Install]
+WantedBy=multi-user.target
