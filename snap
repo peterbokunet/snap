@@ -135,6 +135,7 @@ while (1) {
     $notify->sendtwitter($overall);
     $notify->sendyammer($overall);
     $notify->sendslack($overall);
+    $notify->sendteams($overall);
     $notify->sendpage("(snap) ".$overall);
     my $formatted = sprintf("%10s -> %s", $host, $overall);
     $notify->logging("info", $formatted);
