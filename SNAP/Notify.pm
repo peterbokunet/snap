@@ -249,7 +249,7 @@ sub checkSlack {
 sub checkTeams {
     my $self = shift;
     my $mod = "use LWP::UserAgent;";
-    my ($apikey) = $self->slack();
+    my ($apikey) = $self->teams();
 
     return(0)
       if ((! defined $apikey) || ($apikey eq ''));
@@ -299,7 +299,7 @@ sub slack {
 sub teams {
   my ($self) = shift;
   $self->{teams} = shift if (@_);
-  $self->logging(ref($self).'->teams = '.$self->{slack})
+  $self->logging(ref($self).'->teams = '.$self->{teams})
       if ($self->debug>2);
   return $self->{teams};
 }
