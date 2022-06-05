@@ -1,0 +1,18 @@
+[Unit]
+Description=SNAP System Monitoring
+After=auditd.service systemd-user-sessions.service time-sync.target
+ 
+[Service]
+User=root
+TimeoutStartSec=0
+Type=forking
+PIDFile=/var/run/snap.pid
+KillMode=process
+WorkingDirectory=/opt/snap
+ExecStart=/opt/snap/snap.pl
+#Restart=always
+#RestartSec=2
+LimitNOFILE=5555
+ 
+[Install]
+WantedBy=multi-user.target
