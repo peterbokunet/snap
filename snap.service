@@ -16,3 +16,8 @@ LimitNOFILE=5555
  
 [Install]
 WantedBy=multi-user.target
+
+# cp snap.service /lib/systemd/system
+# systemctl daemon-reload
+# systemctl enable snap.service
+# systemctl start snap.service
