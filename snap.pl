@@ -22,7 +22,7 @@ use SNAP::Notify;
 use Data::Dumper;
 
 use strict;
-my $VERSION = '1.00';
+my $VERSION = '1.10';
 
 # a way to catch errors:
 close(STDERR);
@@ -55,14 +55,30 @@ $notify->logging("  subject is now \'".$notify->subject("No subject set")."\'");
 $notify->logging("  from is now \'".$notify->from('SNAP ('.$host.') <snap@'.$host.'>')."\'");
 $notify->logging("  signature is now \'".$notify->signature("\nEnd of Message\n")."\'");
 
+my @notifiers;
+
 my $mod;
 my $user;
 my $booterrors = '';
 my ($cmd, $test, @tests);
 
-# loop through the sections in config file, try to load up the module,
-# and then call $new on it, placing the instance into @tests
+# loop through the sections in config file, try to load as a Notify module first,
+# then as a Test module. This allows config sections like [Slack], [Teams], [Mail]
+# to load SNAP::Notify::Slack, etc. and sections like [Ping], [Diskspace] to load
+# SNAP::Tests::Ping, etc.
 foreach ($cfg->sections) {
+  my $nmod = "SNAP::Notify::$_";
+  eval "use $nmod;";
+  if (!($@ =~ /\w/)) {
+    $notify->logging("  Success loading notify module '$nmod'.");
+    my $n = $nmod->new($cfg);
+    if (defined $n) {
+      push @notifiers, $n;
+      $notify->logging("  Loaded notifier: $nmod");
+    }
+    next;
+  }
+
   $mod = "SNAP::Tests::$_";
   $user = "use ".$mod;
   $notify->logging("Attempting to load \'$user\'... ");
@@ -130,13 +146,20 @@ while (1) {
   if (length($overall)) {
       $overall = localtime . ' ' . $overall;
     $notify->subject($overall);        # set the subject to the message
-    # $notify->sendmail("snap found the following:\n".$overall);  # sends mail
     $notify->sendmail("\n" . $overall);
     $notify->sendtwitter($overall);
     $notify->sendyammer($overall);
     $notify->sendslack($overall);
     $notify->sendteams($overall);
     $notify->sendpage("(snap) ".$overall);
+    # dispatch to modular notifiers
+    foreach my $n (@notifiers) {
+      $n->hostname($host);
+      $n->subject($overall);
+      $n->from($notify->from);
+      $n->signature($notify->signature);
+      $n->send($overall);
+    }
     my $formatted = sprintf("%10s -> %s", $host, $overall);
     $notify->logging("info", $formatted);
     $overall='';
