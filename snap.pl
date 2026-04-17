@@ -18,11 +18,12 @@ my $SNAPERRS='/tmp/snap.err';
 
 use lib '/opt/snap';
 use SNAP::Config;
+use SNAP::Log;
 use SNAP::Notify;
 use Data::Dumper;
 
 use strict;
-my $VERSION = '1.10';
+my $VERSION = '1.20';
 
 # a way to catch errors:
 close(STDERR);
@@ -42,6 +43,17 @@ if (! defined $cfg) {
     exit(1);
 }
 
+my $log = SNAP::Log->new($cfg);
+if (! defined $log) {
+    print "Not defined Log: $!\n";
+    print STDERR "Not defined Log: $!\n";
+    exit(1);
+}
+
+# enable stdout when running under systemd (--no-fork)
+my $nofork = grep { $_ eq '--no-fork' } @ARGV;
+$log->enable_stdout() if $nofork;
+
 my $notify = SNAP::Notify->new($cfg);
 if (! defined $notify) { 
   print "Not defined Notify: $!\n";
@@ -50,10 +62,10 @@ if (! defined $notify) {
 }
 
 # set and log some initial stuff:
-$notify->logging("  hostname is now \'".$notify->hostname($host)."\'");
-$notify->logging("  subject is now \'".$notify->subject("No subject set")."\'");
-$notify->logging("  from is now \'".$notify->from('SNAP ('.$host.') <snap@'.$host.'>')."\'");
-$notify->logging("  signature is now \'".$notify->signature("\nEnd of Message\n")."\'");
+$log->log("  hostname is now \'".$notify->hostname($host)."\'");
+$log->log("  subject is now \'".$notify->subject("No subject set")."\'");
+$log->log("  from is now \'".$notify->from('SNAP ('.$host.') <snap@'.$host.'>')."\'");
+$log->log("  signature is now \'".$notify->signature("\nEnd of Message\n")."\'");
 
 my @notifiers;
 
@@ -70,34 +82,34 @@ foreach ($cfg->sections) {
   my $nmod = "SNAP::Notify::$_";
   eval "use $nmod;";
   if (!($@ =~ /\w/)) {
-    $notify->logging("  Success loading notify module '$nmod'.");
+    $log->log("  Success loading notify module '$nmod'.");
     my $n = $nmod->new($cfg);
     if (defined $n) {
       push @notifiers, $n;
-      $notify->logging("  Loaded notifier: $nmod");
+      $log->log("  Loaded notifier: $nmod");
     }
     next;
   }
 
   $mod = "SNAP::Tests::$_";
   $user = "use ".$mod;
-  $notify->logging("Attempting to load \'$user\'... ");
+  $log->log("Attempting to load \'$user\'... ");
   eval $user;
   if ($@=~/\w/) {  # eval caught something
     my $error = $@;
     $booterrors .= " $mod did not load";
-    $notify->logging("  ERROR: Could not Load $mod ($1)");
-    $notify->logging("  ERROR: $error");
+    $log->log("  ERROR: Could not Load $mod ($1)");
+    $log->log("  ERROR: $error");
   } else {
-    $notify->logging("  Success loading \'$mod\'.");
-    $notify->logging("Attempting to call \'new\' method in $mod... ");
-    $cmd = "push(\@tests, ".$mod."->new(\$cfg, \$notify))";  # call new and push it 
+    $log->log("  Success loading \'$mod\'.");
+    $log->log("Attempting to call \'new\' method in $mod... ");
+    $cmd = "push(\@tests, ".$mod."->new(\$cfg, \$log))";  # call new and push it 
     eval $cmd;
     if ($@=~/\w/) {
       print STDERR "ERROR: $@\n";
-      $notify->logging("  ERROR: $@");
+      $log->log("  ERROR: $@");
     } else {
-      $notify->logging("  Success calling \'new\' in \'$mod\'.");
+      $log->log("  Success calling \'new\' in \'$mod\'.");
     }
   }
 }
@@ -112,12 +124,14 @@ my $SNAPPID = $cfg->mainvalue('pidfile');
 $SNAPPID = '/var/run/snap.pid'
     if (! defined $SNAPPID);
 
-my $pid = fork;
-if ($pid) { # parent: save PID
-    open PIDFILE, ">$SNAPPID" or die "can't open $SNAPPID: $!\n";
-    print PIDFILE $pid . "\n";
-    close PIDFILE;
-    exit 0;
+if (!$nofork) {
+  my $pid = fork;
+  if ($pid) { # parent: save PID
+      open PIDFILE, ">$SNAPPID" or die "can't open $SNAPPID: $!\n";
+      print PIDFILE $pid . "\n";
+      close PIDFILE;
+      exit 0;
+  }
 }
 
 my $SNAPTIME = $cfg->mainvalue('cycletime');
@@ -133,7 +147,7 @@ while (1) {
     }
     if (! $test->test) { # test failed
       # dig the excessive (()) here.
-      $notify->logging(((split(/::/, (ref($test))))[$#_])." reported: ".$test->ErrorString);
+      $log->log(((split(/::/, (ref($test))))[$#_])." reported: ".$test->ErrorString);
       if (length($overall)) {  # already a message in the overall report
 	$overall.= "; ";
       }
@@ -161,11 +175,11 @@ while (1) {
       $n->send($overall);
     }
     my $formatted = sprintf("%10s -> %s", $host, $overall);
-    $notify->logging("info", $formatted);
+    $log->log("info", $formatted);
     $overall='';
-    $notify->logging("TIME: ".(time()-$timer)." seconds (with Errors)");
+    $log->log("TIME: ".(time()-$timer)." seconds (with Errors)");
   } else {
-    $notify->logging("TIME: ".(time()-$timer)." seconds (no Errors)");
+    $log->log("TIME: ".(time()-$timer)." seconds (no Errors)");
   }
   sleep $SNAPTIME;
 }
