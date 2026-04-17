@@ -158,4 +158,4 @@ SNAP was originally written by Jay Jacobs in October 1999 for AIX systems using 
 
 ## License
 
-Internal tool — not publicly distributed.
+MIT License — see [LICENSE](LICENSE) for details.

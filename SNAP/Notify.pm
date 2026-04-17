@@ -17,8 +17,6 @@ Initializes the notification methods.
 
 =over 4
 
-=item checkTwitter()
-=item checkYammer()
 =item checkMail()
 =item checkPager()
 
@@ -39,14 +37,11 @@ call the same method on each.
 
 package SNAP::Notify;
 use Sys::Syslog qw(:DEFAULT setlogsock);
-use Scalar::Util 'blessed'; # for Net::Twitter
 use Carp;
 my $Debugging = 0;
 
 my $haveTeams = 'yes';
 my $haveSlack = 'yes';
-my $haveTwitter = 'no';
-my $haveYammer = 'no';
 my $haveMail = 'no';
 my $havePager = 'no';
 
@@ -56,7 +51,7 @@ sub new {
   my $proto = shift;
   my $class = ref($proto) || $proto;
   my $self;
-  my @depts = qw(debug teams teamsskiphost slack slackskiphost twitter twitterskiphost yammer yammerskiphost yammergroup mail logfile mailer page pager sysloglvl from subject hostname signature syslogid syssock);
+  my @depts = qw(debug teams teamsskiphost slack slackskiphost mail logfile mailer page pager sysloglvl from subject hostname signature syslogid syssock);
 
   if (ref($_[0])) {
     foreach (@depts) {
@@ -93,18 +88,12 @@ sub new {
 		 "are only warnings.  The failure to load modules here will\n".
 		 "not be fatal.");
 
-  $self->checkTwitter();
-  $self->checkYammer();
   $self->checkTeams();
   $self->checkSlack();
   $self->checkMail();
   $self->checkPager();
 
   my $msg = '';
-  $msg .= 'Twitter '
-      if ($haveTwitter eq 'yes');
-  $msg .= 'Yammer '
-      if ($haveYammer eq 'yes');
   $msg .= 'Teams '
       if ($haveTeams eq 'yes');
   $msg .= 'Slack '
@@ -170,56 +159,8 @@ sub checkMail {
 }
 
 
-sub checkTwitter {
-    my $self = shift;
-    my $mod = "use Net::Twitter::Lite::With_APIv1;";
-    my ($ckey, $csec, $atok, $asec) = split(/\:/, $self->twitter());
-
-    return(0)
-	if (($ckey eq '') || ($csec eq '') || ($atok eq '') || ($asec eq ''));
-
-    $self->logging("Attempting to load \'$mod\'... ")
-	if ($self->debug>2);
-
-    eval $mod;
-    if ($@=~/\w/) {  # eval caught something
-	my $error = $@;  
-	$self->logging('  WARNING: Could not Load Net::Twitter::Lite ('.$error.')')
-	    if ($self->debug);
-	$self->logging('  Continuing without twitter');
-	$haveTwitter = 'no';
-    } else {
-	$self->logging('  Success loading Net::Twitter::Lite');
-	$haveTwitter = 'yes';
-    }
-}
 
 
-sub checkYammer {
-    my $self = shift;
-    my $mod = "use Digest;\nuse LWP::UserAgent;use Digest::SHA1";
-    my ($user, $pass) = split(/\:/, $self->yammer());
-
-    return(0)
-      if ((! defined $user) || ($user eq ''));
-
-    return(0)
-      if ((! defined $pass) || ($pass eq ''));
-
-    $self->logging("Attempting to load \'$mod\'... ")
-	if ($self->debug>2);
-    eval $mod;
-    if ($@=~/\w/) {  # eval caught something
-	my $error = $@;  
-	$self->logging("  WARNING: Could not Load Yammer modules ($error)")
-	    if ($self->debug);
-	$self->logging('  Continuing without yammer');
-	$haveYammer = 'no';
-    } else {
-	$self->logging('  Success loading Yammer');
-	$haveYammer = 'yes';
-    }
-}
 
 
 sub checkSlack {
@@ -270,23 +211,7 @@ sub checkTeams {
 }
 
 
-sub twitter {
-  my ($self) = shift;
-  $self->{twitter} = shift if (@_);
-  return undef
-      if (! defined $self->{twitter});
-  $self->logging(ref($self).'->twitter = '.$self->{twitter})
-      if ($self->debug>2);
-  return $self->{twitter};
-}
 
-sub yammer {
-  my ($self) = shift;
-  $self->{yammer} = shift if (@_);
-  $self->logging(ref($self).'->yammer = '.$self->{yammer})
-      if ($self->debug>2);
-  return $self->{yammer};
-}
 
 sub slack {
   my ($self) = shift;
@@ -400,35 +325,8 @@ sub syslogid {
   return $self->{syslogid};
 }
 
-sub twitterskiphost {
-  my ($self) = shift;
-  my $val = shift if (@_);
-  if (defined $val && !($val =~ /^[nN0]/)) {
-      $self->{twitterskiphost} = 'yes';
-  }
-  $self->logging("Notify: twitterskiphost: ".$self->{twitterskiphost})
-      if ($self->debug > 2);
-  return $self->{twitterskiphost};
-}
 
-sub yammerskiphost {
-  my ($self) = shift;
-  my $val = shift if (@_);
-  if (defined $val && !($val =~ /^[nN0]/)) {
-      $self->{yammerskiphost} = 'yes';
-  }
-  $self->logging("Notify: yammerskiphost: ".$self->{yammerskiphost})
-      if ($self->debug > 2);
-  return $self->{yammerskiphost};
-}
 
-sub yammergroup {
-  my ($self) = shift;
-  my $val = shift if (@_);
-  $self->logging("Notify: yammergroup: ".$self->{yammergroup})
-      if ($self->debug > 2);
-  return $self->{yammergroup};
-}
 
 sub slackskiphost {
   my ($self) = shift;
@@ -452,69 +350,7 @@ sub teamsskiphost {
   return $self->{teamsskiphost};
 }
 
-sub sendtwitter {
-  my $self = shift;
-  my $subject = $self->subject || "undefined in $0";
-  my $update = $self->hostname.': '.$self->subject;
-  my $result;
-  my ($ckey, $csec, $atok, $asec) = split(/\:/, $self->twitter());
 
-  return(0)
-      if ($haveTwitter ne 'yes');
-
-  return(0)
-      if (($ckey eq '') || ($csec eq '') || ($atok eq '') || ($asec eq ''));
-  
-  $update = $self->subject
-      if ($self->twitterskiphost ne '');
-
-  $self->logging('Notify: sendtwitter('.$update.')')
-      if ($self->debug>2);
-
-  $self->logging('Notify: twitter account: '.$ckey.':'.$csec.':'.$atok.':'.$asec)
-      if ($self->debug>2);
-
-  $update .= ' '.`date`
-      if ($self->debug>2);
-
-  my $tweet = Net::Twitter::Lite->new(
-      traits          => ['API::REST', 'OAuth'],
-      consumer_key    => $ckey,
-      consumer_secret => $csec,
-      );
-
-  $tweet->access_token($atok);
-  $tweet->access_token_secret($asec);
-
-  $self->logging('Notify: updating: '.$update)
-      if ($self->debug>2);
-  $tweet->update($update);
-  $self->logging('Notify: update sent')
-      if ($self->debug>2);
-  if ( my $err = $@ ) {
-#      if (blessed $err && $err->isa('Net::Twitter::Error')) {
-#          $self->logging('Notify: twitter error: HTTP Response Code: '.$err->code);
-#          $self->logging('Notify: twitter error: HTTP Message......: '.$err->message);
-#          $self->logging('Notify: twitter error: Twitter Error.....: ',$err->error);
-          $self->logging('Notify: twitter error')
-#      } else {
-#          $self->logging('Notify: twitter success')
-#              if ($self->debug>2);
-#      }
-  }
-  
-  return(1);
-}
-
-sub twitterskiphost {
-  my ($self) = shift;
-  my $val = shift if (@_);
-  if (defined $val && !($val =~ /^[nN0]/)) {
-      $self->{twitterskiphost} = 'yes';
-  }
-  $self->logging("Notify: twitterskiphost: ".$self->{twitterskiphost}) if (($Debugging > 2) || ($self->{_DEBUG} > 2));
-  return $self->{twitterskiphost};
-}
 
 sub sendmail {
   my $self = shift;
@@ -544,50 +380,6 @@ sub sendmail {
   return(1);
 }
 
-sub sendyammer {
-  my $self = shift;
-  my $msg = shift;
-  my $subject = $self->subject || "undefined in $0";
-  my $update = $self->hostname.': '.$self->subject;
-  my $result;
-  my $secret = 'ae09929f0e9ec71034c4368c6244613fc718d0b4';
-  my ($user, $pass) = split(/\:/, $self->yammer());
-
-  return(0)
-      if ($haveYammer ne 'yes');
-
-  if ($self->yammerskiphost ne '') {
-      $update = $self->subject;
-  }
-
-  if ($self->yammergroup ne '') {
-      $update = 'to:'.$self->yammergroup.' '.$update;
-  }
-
-  $self->logging("Notify: sendDirectYammer(".$update.")")
-      if ($self->debug>2);
-
-  my $api_nonce  = int(rand(2**32)). ":" . time();
-  my $api_digest = Digest->new('SHA-1')->add($api_nonce . ":" . $secret)->hexdigest;
-  
-  my $r = HTTP::Request->new( POST => 'https://yammer.com/api/v1/messages/' );
-  $r->authorization_basic($user, $pass);
-  $r->header( 'X-Yammer-Client'           => 'SNAP'      );
-  $r->header( 'X-Yammer-Client-Nonce'     => $api_nonce  );
-  $r->header( 'X-Yammer-Client-Hexdigest' => $api_digest );
-  $r->content('body='.$update);
-
-  my $ua = LWP::UserAgent->new();
-  $result =  $ua->request($r);
-
-  if (($result->message eq 'Created') && ($result->code eq 201)) {
-      $self->logging('Notify: sendDirectYammer('.$update.') Succeeded')
-	  if ($self->debug>2);
-  } else {
-      $self->logging('Notify: '.$result->code.' '.$result->message.' => '.$update);
-  }
-  return(1);
-}
 
 sub sendslack {
   my $self = shift;
