@@ -160,12 +160,6 @@ while (1) {
   if (length($overall)) {
       $overall = localtime . ' ' . $overall;
     $notify->subject($overall);        # set the subject to the message
-    $notify->sendmail("\n" . $overall);
-    $notify->sendtwitter($overall);
-    $notify->sendyammer($overall);
-    $notify->sendslack($overall);
-    $notify->sendteams($overall);
-    $notify->sendpage("(snap) ".$overall);
     # dispatch to modular notifiers
     foreach my $n (@notifiers) {
       $n->hostname($host);
