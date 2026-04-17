@@ -1,0 +1,74 @@
+# snap.conf.example
+#
+# SNAP System & Network Analysis Program
+#
+# [main] - Global settings including logging configuration
+# [Slack], [Teams], [Mail], [Pager] - Notification modules (loaded from SNAP::Notify::*)
+# [Ping], [Diskspace], [Memory], etc. - Test modules (loaded from SNAP::Tests::*)
+#
+# Section names map directly to module names:
+#   [Slack]     -> SNAP::Notify::Slack
+#   [Ping]      -> SNAP::Tests::Ping
+#   [Memory]    -> SNAP::Tests::Memory
+#
+# Modules are loaded automatically if their section exists in this file.
+
+[main]
+debug = 0                           # 0=normal, 1=verbose, 2+=trace
+cycletime = 120                     # seconds between test cycles
+
+# Logging (handled by SNAP::Log)
+sysloglvl = local2:debug            # syslog facility:level
+syslogid = snap                     # syslog identifier
+logfile = /dev/null                  # file log (/dev/null to disable)
+# When running with --no-fork, stdout logging is automatically enabled
+
+# Legacy settings (used by SNAP::Notify for mail/pager fallback)
+mail = admin@example.com
+mailer = /usr/lib/sendmail -t
+signature = whatever
+
+# ============================================================================
+# Notification Modules
+# ============================================================================
+# Each section loads the corresponding SNAP::Notify::* module.
+# Remove or comment out a section to disable that notification method.
+
+[Slack]
+url = https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK
+
+# [Teams]
+# url = https://outlook.office.com/webhook/YOUR/TEAMS/WEBHOOK
+
+# [Mail]
+# to = admin@example.com
+# mailer = /usr/lib/sendmail -t
+
+# [Pager]
+# pager = /usr/local/bin/qpage
+# page = oncall
+
+# ============================================================================
+# Test Modules
+# ============================================================================
+# Each section loads the corresponding SNAP::Tests::* module.
+# Tests run every 'cycletime' seconds. Failures trigger all configured
+# notification modules.
+
+[Ping]
+hosts = localhost,10.140.1.66,10.140.1.92
+timeout = 5
+
+[Diskspace]
+uname = /usr/bin/uname -v
+df = /usr/bin/df
+ignore = /proc,/kern,fd,/dev,tmpfs
+defaultspace = 20000                # KB free threshold (default for unlisted mounts)
+/ = 12000                           # KB free threshold for /
+
+[Memory]
+threshold = 10240                   # MB available memory threshold (default 10GB)
+
+[Selfcheck]
+lookfor = /tmp/snap.findme
+ackfile = /tmp/roger.dodger.snap
